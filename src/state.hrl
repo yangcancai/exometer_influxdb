@@ -3,8 +3,10 @@
 
 -record(state, {protocol :: protocol(),
                 db :: binary(), % for http
+                org :: binary(),
                 username :: undefined | binary(), % for http
                 password :: undefined | binary(), % for http
+                token :: undefined | binary(),
                 host :: inet:ip_address() | inet:hostname(), % for udp
                 port :: inet:port_number(),  % for udp
                 timestamping :: boolean(),

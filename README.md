@@ -43,6 +43,8 @@ Available options:
 * __host__ - InfluxDB host. `127.0.0.1` by default.
 * __port__ - InfluxDB port. `8086` by default.
 * __db__ - Database on InfluxDB for writing data. `exometer` by default.
+* __token__ - Use the Token authentication scheme to authenticate to the InfluxDB API v2.
+* __org__ - The destination organization for writes. InfluxDB writes all points in the batch to this organization. 
 * __username__ - Username for authorization on InfluxDB.
 * __password__ - Password for authorization on InfluxDB.
 * __timestamping__ - Enable timestamping, `false` by default. To enable `timestamping` with the reporter you can use `true` or `{true, Precision}` where `Precision` is a unit taken from `[n,u,ms,s,m,h]`. The default unit is `u`.

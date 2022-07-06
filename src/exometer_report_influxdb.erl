@@ -38,7 +38,9 @@
 -define(DEFAULT_UDP_MTU, 65536).
 -define(DEFAULT_AUTOSUBSCRIBE, false).
 -define(DEFAULT_SUBSCRIPTIONS_MOD, undefined).
+-define(DEFAULT_ORG, ?DEFAULT_DB).
 
+-define(DEFAULT_TOKEN, undefined).
 -define(VALID_PRECISIONS, [n, u, ms, s, m, h]).
 
 % https://en.wikipedia.org/wiki/User_Datagram_Protocol#Packet_structure
@@ -64,6 +66,7 @@ exometer_init(Opts) ->
     Protocol = get_opt(protocol, Opts, ?DEFAULT_PROTOCOL),
     Port = get_opt(port, Opts, ?DEFAULT_PORT),
     DB = get_opt(db, Opts, ?DEFAULT_DB),
+    Org = get_opt(org, Opts, ?DEFAULT_ORG),
     Username = get_opt(username, Opts, ?DEFAULT_USERNAME),
     Password = get_opt(password, Opts, ?DEFAULT_PASSWORD),
     TimestampOpt = get_opt(timestamping, Opts, ?DEFAULT_TIMESTAMP_OPT),
@@ -76,12 +79,15 @@ exometer_init(Opts) ->
     Autosubscribe = get_opt(autosubscribe, Opts, ?DEFAULT_AUTOSUBSCRIBE),
     SubscriptionsMod = get_opt(subscriptions_module, Opts, ?DEFAULT_SUBSCRIPTIONS_MOD),
     MergedTags = merge_tags([{<<"host">>, net_adm:localhost()}], Tags),
+    Token = get_opt(token, Opts, ?DEFAULT_TOKEN),
     State =  #state{protocol = Protocol,
                     db = DB,
+                    org = Org,
                     username = Username,
                     password = Password,
                     host = binary_to_list(Host),
                     port = Port,
+                    token = Token,
                     timestamping = Timestamping,
                     precision = Precision,
                     tags = MergedTags,
@@ -291,14 +297,11 @@ maybe_start_new_window(_, _) -> ok.
     {ok, state()} | {error, term()}.
 send(Packet, #state{protocol = Proto, connection= Connection,
                     precision = Precision, db = DB,
+                    token = Token,
+                    org = Org,
                     timestamping = Timestamping} = State)
     when ?HTTP(Proto) ->
-    QsVals = case Timestamping of
-                 false -> [{<<"db">>, DB}];
-                 true  -> [{<<"db">>, DB}, {<<"precision">>, Precision}]
-             end,
-    Url = hackney_url:make_url(<<"/">>, <<"write">>, QsVals),
-    Req = {post, Url, [], Packet},
+    Req = get_req(State, Packet),
     case hackney:send_request(Connection, Req) of
         {ok, 204, _, Ref} ->
             hackney:body(Ref),
@@ -541,3 +544,18 @@ evaluate_subscription_formatting({MetricId, Tags, FromNameIndices}, FormattingOp
 evaluate_subscription_series_name({MetricId, Tags}, undefined) -> {MetricId, Tags};
 evaluate_subscription_series_name({_MetricId, Tags}, SeriesName) -> {SeriesName, Tags}.
 
+get_req(#state{token = undefined} = State, Packet) ->
+  QsVals = case State#state.timestamping of
+             false -> [{<<"db">>, State#state.db}];
+             true  -> [{<<"db">>, State#state.db}, {<<"precision">>, State#state.precision}]
+           end,
+  Url = hackney_url:make_url(<<"/">>, <<"write">>, QsVals),
+  {post, Url, [], Packet};
+
+get_req(#state{token = Token, org = Org} = State, Packet) ->
+  QsVals = case State#state.timestamping of
+             false -> [{<<"bucket">>, State#state.db}, {<<"org">>, Org}];
+             true  -> [{<<"bucket">>, State#state.db}, {<<"org">>, Org}, {<<"precision">>, State#state.precision}]
+           end,
+  Url = hackney_url:make_url(<<"/api/v2">>, <<"write">>, QsVals),
+  {post, Url, [{<<"Authorization">>, <<"Token ", Token/binary>>}], Packet}.
