@@ -557,5 +557,5 @@ get_req(#state{token = Token, org = Org} = State, Packet) ->
              false -> [{<<"bucket">>, State#state.db}, {<<"org">>, Org}];
              true  -> [{<<"bucket">>, State#state.db}, {<<"org">>, Org}, {<<"precision">>, State#state.precision}]
            end,
-  Url = hackney_url:make_url(<<"/api/v2">>, <<"write">>, QsVals),
+  Url = hackney_url:make_url(<<"/">>, <<"/api/v2/write">>, QsVals),
   {post, Url, [{<<"Authorization">>, <<"Token ", Token/binary>>}], Packet}.
